@@ -32,86 +32,97 @@ class ProgramConfig:
 		return vars(self) == vars(other)
 
 class ProcessInstance:
-    
-    pass
+	"Identity : PID PPID PGID SID CHILD"
+	"State : State  CPU TIME"
+	"Files : FD"
+	"ENV : ENVP CWD ROOT DIR"
+	"SIGNALS : "
+	"PATH"
+	"ARG"
+
+	"HERITE DE :"
+	"FD - ENVP - CWD - UID/GID"
+
+	def __init__(self):
+		pass
 
 class Taskmaster:
 
-    def __init__(self, configs: List[ProgramConfig]):
-        self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
-        self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
-        self.running: bool = True
+	def __init__(self, configs: List[ProgramConfig]):
+		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
+		self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
+		self.running: bool = True
 
-    def setup(self):
-        "lancer tout les process avec process.start()"
-        "lancer la main loop avec run shell"
-        "clean les process pour l'exit"
-        self.run_shell()
-        pass
+	def setup(self):
+		"lancer tout les process avec process.start()"
+		"lancer la main loop avec run shell"
+		"clean les process pour l'exit"
+		self.run_shell()
+		pass
 
-    def clean_up(self):
-        "sig STOP or KILL pour tout les process."
-        pass
+	def clean_up(self):
+		"sig STOP or KILL pour tout les process."
+		pass
 
-    def status(self):
-        "afficher le status des process (running, existed, etc.)"
-        print("status GENERAL")
+	def status(self):
+		"afficher le status des process (running, existed, etc.)"
+		print("status GENERAL")
 
-    def reload(self):
-        "relancer le parsing du yml"
-        print("reload du yml")
-        pass
+	def reload(self):
+		"relancer le parsing du yml"
+		print("reload du yml")
+		pass
 
-    def start(self, parts):
-        "démarrer si besoin le programme avec le bon nombre de process"
-        print("start de", parts)
-        pass
+	def start(self, parts):
+		"démarrer si besoin le programme avec le bon nombre de process"
+		print("start de", parts)
+		pass
 
-    def stop(self, parts):
-        "arrêter le programme s'il existe avec tout ses process"
-        print("stop de", parts)
-        pass
+	def stop(self, parts):
+		"arrêter le programme s'il existe avec tout ses process"
+		print("stop de", parts)
+		pass
 
-    def restart(self, parts):
-        "sûrment moyen de faire self.stop et self.start l'un après l'autre"
-        print("restart de", parts)
-        pass
+	def restart(self, parts):
+		"sûrment moyen de faire self.stop et self.start l'un après l'autre"
+		print("restart de", parts)
+		pass
 
-    def run_shell(self):
-        print("<<Taskmaster shell>>")
+	def run_shell(self):
+		print("<<Taskmaster shell>>")
 
-        while self.running:
-            line = input()
-            if not line:
-                break # entrée vide
+		while self.running:
+			line = input()
+			if not line:
+				break # entrée vide
 
-            parts = line.split()
-            if not parts:
-                continue # sécu
+			parts = line.split()
+			if not parts:
+				continue # sécu
 
-            match parts[0]:
-                case "status":
-                    self.status()
-                case "reload":
-                    self.reload()
-                case "start":
-                    self.start(parts[1:])
-                case "stop":
-                    self.stop(parts[1:])
-                case "restart":
-                    self.restart(parts[1:])
-                case "exit":
-                    self.running = False
-                case _:
-                    print("Commande inconnue")
+			match parts[0]:
+				case "status":
+					self.status()
+				case "reload":
+					self.reload()
+				case "start":
+					self.start(parts[1:])
+				case "stop":
+					self.stop(parts[1:])
+				case "restart":
+					self.restart(parts[1:])
+				case "exit":
+					self.running = False
+				case _:
+					print("Commande inconnue")
 
 if __name__ == "__main__":
-    config = [
-        ProgramConfig("nginx"), ProgramConfig("vogsphere")
-    ]
+	config = [
+		ProgramConfig("nginx"), ProgramConfig("vogsphere")
+	]
 
-    tm = Taskmaster(config)
-    try:
-        tm.setup()
-    except (EOFError, KeyboardInterrupt):
-        tm.clean_up()
+	tm = Taskmaster(config)
+	try:
+		tm.setup()
+	except (EOFError, KeyboardInterrupt):
+		tm.clean_up()
