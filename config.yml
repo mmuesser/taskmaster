@@ -1,9 +1,9 @@
 programs:
   nginx:
-    cmd: "/usr/local/bin/nginx -c /etc/nginx/test.conf"
+    cmd: "ls -R"
     numprocs: 1
-    umask: 1.2
-    workingdir: /tmp
+    umask: 022
+    workingdir: .
     autostart: true
     autorestart: unexpected
     exitcodes:
@@ -17,17 +17,15 @@ programs:
     stderr: /tmp/nginx.stderr
     env:
       STARTED_BY: taskmaster
-      ANSWER: 42
+      ANSWER: '42'
 
   vogsphere:
-    # cmd: "/usr/local/bin/vogsphere-worker --no-prefork"
+    cmd: "echo 'lol'"
     numprocs: 8
-    umask:
-    workingdir: /tmp
+    umask: 022
+    workingdir: .
     autostart: true
     autorestart: unexpected
-    exitcodes: 
-      - 0
     startretries: 3
     starttime: 5
     stopsignal: USR1
