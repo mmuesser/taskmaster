@@ -1,4 +1,4 @@
-import os, sys, time, subprocess, logging
+import os, sys, time, subprocess, logging, yaml
 from typing import List, Dict, Optional
 
 class ProgramConfig:
@@ -94,7 +94,7 @@ class Taskmaster:
 		while self.running:
 			line = input()
 			if not line:
-				break # entrée vide
+				continue # entrée vide
 
 			parts = line.split()
 			if not parts:
@@ -117,11 +117,18 @@ class Taskmaster:
 					print("Commande inconnue")
 
 if __name__ == "__main__":
-	config = [
-		ProgramConfig("nginx"), ProgramConfig("vogsphere")
-	]
 
-	tm = Taskmaster(config)
+	with open("config.yml") as file:
+		config = yaml.load(file, Loader=yaml.FullLoader)
+		config = list(config.values())[0]
+
+	prog = []
+
+	for key in config:
+		tmp = ProgramConfig(config[key], key)
+		prog.append(tmp)
+
+	tm = Taskmaster(prog)
 	try:
 		tm.setup()
 	except (EOFError, KeyboardInterrupt):
