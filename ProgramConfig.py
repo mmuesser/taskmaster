@@ -1,4 +1,4 @@
-import os, sys, time, subprocess, logging, yaml, readline
+import os, sys, time, subprocess, logging, yaml, readline, shlex
 from typing import List, Dict, Optional
 
 class ProgramConfig:
@@ -13,8 +13,8 @@ class ProgramConfig:
 	starttime = (int, 0)
 	stopsignal = (str, "stop")
 	stoptime = (int, 0)
-	stdout = (str, None)
-	stderr = (str, None)
+	stdout = (str, '/dev/null')
+	stderr = (str, '/dev/null')
 	env = (dict, None)
 
 	def __init__(self, prog, name):
@@ -39,8 +39,20 @@ class TabComplete:
 	def auto_complete(cls, text, state):
 		return [i for i in cls.key_words if i.startswith(text)][state]
 
+class FdManager:
+
+	def __init__(self, stdout, stderr):
+		self.stdout = open(stdout, 'a') if stdout != '/dev/null' else stdout
+		self.stderr = open(stderr, 'a') if stderr != '/dev/null' else stderr
+
+	def close(self):
+		for fd in (self.stdout, self.stderr):
+			if fd == '/dev/null':
+				continue
+			fd.close()
+
 class ProcessInstance:
-	"Identity : PID PPID PGID SID CHILD"
+	"Identity : PID PPID"
 	"State : State  CPU TIME"
 	"Files : FD"
 	"ENV : ENVP CWD ROOT DIR"
@@ -52,7 +64,22 @@ class ProcessInstance:
 	"FD - ENVP - CWD - UID/GID"
 
 	def __init__(self):
+		self.pid
+		self.config: ProgramConfig
+		self.fds: FdManager = FdManager(self.config.stdout, self.config.stdout)
 		pass
+	
+	def start(self):
+		self.pid = subprocess.Popen(
+			args=shlex.split(self.config),
+			stdout=self.fds.stdout,
+			stderr=self.fds.stderr,
+			umask=self.config.umask,
+			env=self.config.env,
+			cwd=self.config.workingdir
+		)
+		pass
+
 
 class Taskmaster:
 
@@ -138,17 +165,17 @@ if __name__ == "__main__":
 		# ProgramConfig("nginx"), ProgramConfig("vogsphere")
 	# ]
 
-	with open("config.yml") as file:
-		config = yaml.load(file, Loader=yaml.FullLoader)
-		config = list(config.values())[0]
+	# with open("config.yml") as file:
+	# 	config = yaml.load(file, Loader=yaml.FullLoader)
+	# 	config = list(config.values())[0]
 
-	prog = []
+	# prog = []
 
-	for key in config:
-		tmp = ProgramConfig(config[key], key)
-		prog.append(tmp)
+	# for key in config:
+	# 	tmp = ProgramConfig(config[key], key)
+	# 	prog.append(tmp)
 
-	tm = Taskmaster(prog)
+	tm = Taskmaster(config)
 	try:
 		tm.setup()
 	except (EOFError, KeyboardInterrupt):
