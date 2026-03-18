@@ -1,4 +1,4 @@
-import os, sys, time, subprocess, logging, yaml
+import os, sys, time, subprocess, logging, yaml, readline
 from typing import List, Dict, Optional
 
 class ProgramConfig:
@@ -30,6 +30,14 @@ class ProgramConfig:
 		if not isinstance(other, ProgramConfig):
 			return False
 		return vars(self) == vars(other)
+	
+class TabComplete:
+
+	key_words = []
+
+	@classmethod
+	def auto_complete(cls, text, state):
+		return [i for i in cls.key_words if i.startswith(text)][state]
 
 class ProcessInstance:
 	"Identity : PID PPID PGID SID CHILD"
@@ -52,6 +60,9 @@ class Taskmaster:
 		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
 		self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
 		self.running: bool = True
+		TabComplete.key_words.extend(list(self.configs.keys()))
+		TabComplete.key_words.extend(["start", "stop", "restart", "reload"])
+		print(TabComplete.key_words)
 
 	def setup(self):
 		"lancer tout les process avec process.start()"
@@ -117,6 +128,15 @@ class Taskmaster:
 					print("Commande inconnue")
 
 if __name__ == "__main__":
+	readline.parse_and_bind("tab: complete")
+	readline.set_completer(TabComplete.auto_complete)
+
+	with open("config.yml") as file:
+		config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader)["programs"].items()]
+	
+	# config = [
+		# ProgramConfig("nginx"), ProgramConfig("vogsphere")
+	# ]
 
 	with open("config.yml") as file:
 		config = yaml.load(file, Loader=yaml.FullLoader)
