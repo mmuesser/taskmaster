@@ -2,9 +2,9 @@ import os, sys, time, subprocess, logging, yaml, readline, shlex
 from typing import List, Dict, Optional
 
 class ProgramConfig:
-	cmd = (str, None)
+	cmd = (str, "")
 	numprocs = (int, 1)
-	umask = (str, "000")
+	umask = (int, 0o000)
 	workingdir = (str, "/tmp")
 	autostart = (bool, True)
 	autorestart = (str, None)
@@ -13,15 +13,21 @@ class ProgramConfig:
 	starttime = (int, 0)
 	stopsignal = (str, "stop")
 	stoptime = (int, 0)
-	stdout = (str, '/dev/null')
-	stderr = (str, '/dev/null')
-	env = (dict, None)
+	stdout = (str, "/dev/null")
+	stderr = (str, "/dev/null")
+	env = (dict, {})
 
 	def __init__(self, prog, name):
 		self.name = name
 		lst_attr = {k: v for k, v in ProgramConfig.__dict__.items() if not callable(v) and not k.startswith("__")}
 		for key in lst_attr:
-			setattr(self, key, prog[key] if isinstance(prog.get(key, None), lst_attr[key][0]) else print(self.name, ": Base value", lst_attr[key][1], "is set for", key) and lst_attr[key][1])
+			# setattr(self, key, prog[key] if isinstance(prog.get(key, None), lst_attr[key][0]) else (lst_attr[key][1] and print(self.name, ": Base value ", lst_attr[key][1], "is set for", key)))
+			value = prog.get(key, None)
+			if not isinstance(value, lst_attr[key][0]):
+				value = lst_attr[key][1]
+				print(self.name, ": Base value", value, "is set for", key)
+			setattr(self, key, value)
+		print(self)
 
 	def __str__(self) -> str:
 		return str(vars(self))

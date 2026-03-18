@@ -20,7 +20,7 @@ programs:
       ANSWER: 42
 
   vogsphere:
-    cmd: "/usr/local/bin/vogsphere-worker --no-prefork"
+    # cmd: "/usr/local/bin/vogsphere-worker --no-prefork"
     numprocs: 8
     umask:
     workingdir: /tmp
