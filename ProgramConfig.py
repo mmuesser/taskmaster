@@ -11,6 +11,8 @@ class State(Enum):
 	KILLED = "KILLED"
 	SUCCESS = "SUCCESS"
 
+
+"Verifier comportement si config a des champs en TROP"
 class ProgramConfig:
 	cmd = (str, "")
 	numprocs = (int, 1)
