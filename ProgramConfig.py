@@ -1,6 +1,11 @@
-import os, sys, time, subprocess, logging, yaml, readline, shlex
+import os, sys, time, subprocess, logging, yaml, readline, shlex, asyncio
 from typing import List, Dict, Optional
 from enum import Enum
+import signal
+from logger import Logger
+import threading, queue
+
+logger = Logger()
 
 class State(Enum):
 	INIT = "INITIALISATION"
@@ -10,6 +15,15 @@ class State(Enum):
 	FAILED = "FAILED"
 	KILLED = "KILLED"
 	SUCCESS = "SUCCESS"
+
+
+def get_signal(string: str):
+	sig = signal.Signals.SIGSTOP
+	try :
+		sig = signal.Signals.__getitem__(string).value
+	except KeyError:
+		pass
+	return sig
 
 
 "Verifier comportement si config a des champs en TROP"
@@ -23,11 +37,12 @@ class ProgramConfig:
 	exitcodes = (list, [])
 	startretries = (int, 0)
 	starttime = (int, 0)
-	stopsignal = (str, "stop")
+	stopsignal = (str, "SIGSTOP")
 	stoptime = (int, 0)
 	stdout = (str, "/dev/null")
 	stderr = (str, "/dev/null")
 	env = (dict, {})
+
 
 	def __init__(self, prog, name):
 		self.name = name
@@ -37,9 +52,11 @@ class ProgramConfig:
 			value = prog.get(key, None)
 			if not isinstance(value, lst_attr[key][0]):
 				value = lst_attr[key][1]
-				print(self.name, ": Base value", value, "is set for", key)
+				# print(self.name, ": Base value", value, "is set for", key)
+				logger.info(f"{self.name}: Base value {value} is set for {key}")
 			setattr(self, key, value)
-		print(self)
+		self.stopsignal = get_signal(self.stopsignal)
+		# print(self)
 
 	def __str__(self) -> str:
 		return str(vars(self))
@@ -85,26 +102,29 @@ class ProcessInstance:
 	"FD - ENVP - CWD - UID/GID"
 
 	def __init__(self, config: ProgramConfig, index: int):
-		self.pid: int = 0
+		self.pid = None
 		self.index = index
 		self.config: ProgramConfig = config
 		self.fds: FdManager = FdManager(self.config.stdout, self.config.stdout)
 		self.state: State = State.STOPPED
+		self.restart_count: int = 0
+		self.killed: bool = False
+		self.process_name = f"{self.config.name}_{self.index}"
 	
-	def start(self):
-		print(shlex.split(self.config.cmd))
-		print(self.config)
-		# env = os.environ
-		# env.update(self.config.env)
-		# print(env)
-		if not self.config.env:
-			self.config.env = {}
+	async def start(self):
+		# print(shlex.split(self.config.cmd))
+		# print(self.config)
+
+		if not self.config.autostart:
+			return
+
+		logger.info(f"{self.process_name} INIT")
 
 		self.state = State.INIT
 
 		try:
-			self.pid = subprocess.Popen(
-				args=shlex.split(self.config.cmd),
+			self.pid = await asyncio.create_subprocess_shell(
+				cmd=self.config.cmd,
 				stdout=self.fds.stdout,
 				stderr=self.fds.stderr,
 				umask=self.config.umask,
@@ -112,13 +132,56 @@ class ProcessInstance:
 				cwd=self.config.workingdir
 			)
 			self.state = State.STARTING
+			logger.info(f"{self.process_name} STARTING")
+
 		except OSError:
 			self.state = State.FAILED
+			logger.info(f"{self.process_name} FAILED (start)")
 			return # ?
 
 		print(self.pid)
 
-	def stop(self):
+		asyncio.create_task(self.monitor())
+
+	async def monitor(self):
+		if self.pid.returncode is None:
+			try:
+				await asyncio.wait_for(self.pid.wait(), self.config.starttime)
+				if not self.pid.returncode in self.config.exitcodes:
+					self.state = State.FAILED
+					logger.info(f"{self.process_name} FAILED (monitor 1)")
+			except asyncio.TimeoutError:
+				self.state = State.RUNNING
+				logger.info(f"{self.process_name} RUNNING")
+
+		
+		await self.pid.wait()
+		if self.pid.returncode in self.config.exitcodes:
+			self.state = State.SUCCESS
+			logger.info(f"{self.process_name} SUCCESS (monitor)")
+			return
+
+		else:
+			self.state = State.FAILED
+			logger.info(f"{self.process_name} FAILED (monitor 2)")
+
+		should_restart = False
+		if self.config.autorestart in ("unexpected", "always"):
+			should_restart = True
+
+		if not should_restart or self.restart_count == self.config.startretries:
+			return
+
+		self.restart_count += 1
+
+		logger.debug(f"{self.process_name} RESTART")
+
+		
+		#TODO REFACTO
+		asyncio.create_task(self.start())
+
+
+	async def stop(self):
 		if self.state != State.RUNNING:
 			return
 		
@@ -131,10 +194,10 @@ class ProcessInstance:
 			self.state = State.KILLED
 
 	def status(self):
-		if self.pid.poll() == None:
+		if self.pid.returncode is None:
 			# TODO
 			print(f"{self.config.name}_{self.index} is RUNNING")
-			self.state = State.RUNNING  # à changer
+			# self.state = State.RUNNING  # à changer
 		else:
 			print(f"{self.config.name}_{self.index} is {self.state.value}")
 
@@ -146,28 +209,51 @@ class Taskmaster:
 		self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
 		self.running: bool = True
 		TabComplete.key_words.extend(list(self.configs.keys()))
-		TabComplete.key_words.extend(["start", "stop", "restart", "reload"])
+		TabComplete.key_words.extend(["start", "stop", "restart", "reload", "status"])
+		# self.q = queue.Queue()
+		# self.stop_event: any
 		# print(TabComplete.key_words)
 
-	def setup(self):
+	# @classmethod
+	# def read_input(cls, q):
+		# while True:
+			# line = input()
+			# q.put(line)
+
+	def stop_loop(self, *args):
+		logger.warning("LOOP ABOUT TO END")
+		self.running = False
+
+	def set_sig(self):
+		catchable_sigs = {
+			signal.SIGTERM,
+			signal.SIGINT
+		}
+		for sig in catchable_sigs:
+			signal.signal(sig, self.stop_loop)
+	
+	
+
+	async def setup(self):
 		"lancer tout les process avec process.start()"
 		"lancer la main loop avec run shell"
 		"clean les process pour l'exit"
-		
+
 		for name, conf in self.configs.items():
 			if conf.autostart:
-				self.start(name)
+				asyncio.create_task(self.start(name))
 		
-		self.run_shell()
+		await self.run_shell()
 		pass
 
 	def clean_up(self):
 		"sig STOP or KILL pour tout les process."
+		logger.info("CLEAN UP")
 		pass
 
-	def status(self):
+	async def status(self):
 		"afficher le status des process (running, existed, etc.)"
-		print("status GENERAL")
+		logger.info("General Status")
 		for k, v in self.instance.items():
 			for proc in v:
 				proc.status()
@@ -176,14 +262,14 @@ class Taskmaster:
 			# return
 		# print("instance X is ", self.instance.state)
 
-	def reload(self):
+	async def reload(self):
 		"relancer le parsing du yml"
-		print("reload du yml")
+		logger.info("Reload du yml")
 		pass
 
-	def start(self, prog):
+	async def start(self, prog):
 		"démarrer si besoin le programme avec le bon nombre de process"
-		print("start de", prog)
+		logger.info(f"Start de {prog}")
 
 		if not prog in self.configs:
 			return
@@ -197,16 +283,16 @@ class Taskmaster:
 
 		for i in range(config.numprocs):
 			process = ProcessInstance(config, i)
-			process.start()
+			asyncio.create_task(process.start())
 			proc_instance.append(process)
 
 		self.instance[prog] = proc_instance
 
 		pass
 
-	def stop(self, prog):
+	async def stop(self, prog):
 		"arrêter le programme s'il existe avec tout ses process"
-		print("stop de", prog)
+		logger.info(f"Stop de {prog}")
 		if not prog in self.configs:
 			return
 		
@@ -217,40 +303,43 @@ class Taskmaster:
 
 		pass
 
-	def restart(self, prog):
+	async def restart(self, prog):
 		"sûrment moyen de faire self.stop et self.start l'un après l'autre"
-		print("restart de", prog)
+		logger.info(f"Restart de {prog}")
 		self.stop(prog)
 		self.start(prog)
 		pass
 
-	def run_shell(self):
+	async def run_shell(self):
 		print("<<Taskmaster shell>>")
 
 		while self.running:
-			line = input()
+			logger.info("Before get")
+			line = await asyncio.get_event_loop().run_in_executor(None, input)
+			logger.info("After get")
 			if not line:
 				continue # entrée vide
-
+			
 			parts = line.split()
 			if not parts:
 				continue # sécu
-
+			logger.info("Before case")
 			match parts[0]:
 				case "status":
-					self.status()
+					asyncio.create_task(self.status())
 				case "reload":
-					self.reload()
+					asyncio.create_task(self.reload())
 				case "start":
-					self.start(parts[1])
+					asyncio.create_task(self.start(parts[1]))
 				case "stop":
-					self.stop(parts[1])
+					asyncio.create_task(self.stop(parts[1]))
 				case "restart":
-					self.restart(parts[1])
+					asyncio.create_task(self.restart(parts[1]))
 				case "exit":
 					self.running = False
 				case _:
 					print("Commande inconnue")
+			logger.info("After case")
 
 if __name__ == "__main__":
 	readline.parse_and_bind("tab: complete")
@@ -259,22 +348,9 @@ if __name__ == "__main__":
 	with open("config.yml") as file:
 		config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader)["programs"].items()]
 	
-	# config = [
-		# ProgramConfig("nginx"), ProgramConfig("vogsphere")
-	# ]
-
-	# with open("config.yml") as file:
-	# 	config = yaml.load(file, Loader=yaml.FullLoader)
-	# 	config = list(config.values())[0]
-
-	# prog = []
-
-	# for key in config:
-	# 	tmp = ProgramConfig(config[key], key)
-	# 	prog.append(tmp)
-
 	tm = Taskmaster(config)
 	try:
-		tm.setup()
-	except (EOFError, KeyboardInterrupt):
+		asyncio.run(tm.setup())
+	except (EOFError):
+		# TODO CTRL+C
 		tm.clean_up()
