@@ -1,9 +1,9 @@
 from enum import Enum
 import signal
-from main import logger
+from logger import Logger
 from utils import State
 
-
+logger = Logger()
 
 def get_signal(string: str):
 	sig = signal.Signals.SIGSTOP

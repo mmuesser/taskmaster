@@ -1,9 +1,12 @@
 from ProgramConfig import ProgramConfig
 from utils import FdManager
-from main import logger
+from logger import Logger
 from utils import State
 import asyncio
 import subprocess # TODO
+import os
+
+logger = Logger()
 
 class ProcessInstance:
 	"Identity : PID PPID"

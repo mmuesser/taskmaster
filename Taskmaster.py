@@ -1,9 +1,11 @@
 from ProgramConfig import ProgramConfig
 from ProcessInstance import ProcessInstance
 from utils import TabComplete, State
-from main import logger
+from logger import Logger
 import asyncio
 from typing import Dict, List
+
+logger = Logger()
 
 class Taskmaster:
 
