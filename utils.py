@@ -1,3 +1,14 @@
+from enum import Enum
+
+class State(Enum):
+	INIT = "INITIALISATION"
+	STARTING = "STARTING"
+	RUNNING = "RUNNING"
+	STOPPED = "STOPPED"
+	FAILED = "FAILED"
+	KILLED = "KILLED"
+	SUCCESS = "SUCCESS"
+
 class TabComplete:
 
 	key_words = []
