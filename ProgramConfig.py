@@ -4,6 +4,7 @@ from enum import Enum
 import signal
 from logger import Logger
 import threading, queue
+from utils import TabComplete, FdManager
 
 logger = Logger()
 
@@ -65,30 +66,8 @@ class ProgramConfig:
 		if not isinstance(other, ProgramConfig):
 			return False
 		return vars(self) == vars(other)
+
 	
-class TabComplete:
-
-	key_words = []
-
-	@classmethod
-	def auto_complete(cls, text, state):
-		return [i for i in cls.key_words if i.startswith(text)][state]
-
-class FdManager:
-
-	def __init__(self, stdout, stderr):
-		# /dev/null -> -3
-		self.stdout = open(stdout, 'a') if stdout != '/dev/null' else stdout
-		self.stderr = open(stderr, 'a') if stderr != '/dev/null' else stderr
-		# self.stdout = stdout
-		# self.stderr = stderr
-
-	def close(self):
-		for fd in (self.stdout, self.stderr):
-			if fd == '/dev/null':
-				continue
-			fd.close()
-
 class ProcessInstance:
 	"Identity : PID PPID"
 	"State : State  CPU TIME"
