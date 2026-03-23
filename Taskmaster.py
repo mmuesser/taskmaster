@@ -1,13 +1,13 @@
 from ProgramConfig import ProgramConfig
 from ProcessInstance import ProcessInstance
 from utils import TabComplete, State
-from logger import Logger
-import asyncio
-from typing import Dict, List
-
-logger = Logger()
+from logger import logger
+import asyncio, yaml, signal
+from typing import Dict, List, Set
 
 class Taskmaster:
+
+	config_file = "config.yml"
 
 	def __init__(self, configs: List[ProgramConfig]):
 		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
@@ -28,6 +28,12 @@ class Taskmaster:
 		await self.run_shell()
 		pass
 
+	@classmethod
+	def load_config(self) -> List[ProgramConfig]:
+		with open(self.config_file, 'r', encoding='utf-8') as file:
+			config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items()]
+		return config
+
 	def clean_up(self):
 		"sig STOP or KILL pour tout les process."
 		logger.info("CLEAN UP")
@@ -36,13 +42,55 @@ class Taskmaster:
 	async def status(self):
 		"afficher le status des process (running, existed, etc.)"
 		logger.info("General Status")
+		if not self.instance:
+			logger.info("Nothing has been launched yet")
+			return
+		
 		for k, v in self.instance.items():
 			for proc in v:
 				proc.status()
 
 	async def reload(self):
 		"relancer le parsing du yml"
-		logger.info("Reload du yml")
+		new_config: List[ProgramConfig] = Taskmaster.load_config()
+		# to_reload: Set[ProgramConfig] = set(self.configs.values()) & set(new_config)
+
+		# logger.debug(f"to reload {to_reload}")
+
+		# for conf in to_reload:
+			# name = conf.name
+			# self.configs[name] = conf
+			# 
+			# await self.stop(name)
+			# asyncio.create_task(self.start(name))
+
+		if not (set(self.configs.values()) - set(new_config)):
+			logger.info("Nothing to reload")
+			return
+
+		to_stop: Set[ProgramConfig] = set(self.configs.values()) - set(new_config)
+
+		logger.debug(f"to stop {to_stop}")
+
+		for conf in to_stop:
+			name = conf.name
+			await self.stop(name)
+			del self.configs[name]
+
+		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
+
+		logger.debug(f"to start / restart {to_start}")
+
+		for conf in to_start:
+			name = conf.name
+			self.configs[name] = conf
+
+			if name in self.configs:
+				await self.stop(name)
+			
+			if conf.autostart:
+				asyncio.create_task(self.start(name))
+
 		pass
 
 	async def start(self, prog):
@@ -56,6 +104,8 @@ class Taskmaster:
 
 		config: ProgramConfig = self.configs[prog]
 
+		logger.debug(f"lancement de {config.numprocs} process")
+
 		for i in range(config.numprocs):
 			process = ProcessInstance(config, i)
 			asyncio.create_task(process.start())
@@ -68,13 +118,13 @@ class Taskmaster:
 	async def stop(self, prog):
 		"arrêter le programme s'il existe avec tout ses process"
 		logger.info(f"Stop de {prog}")
-		if not prog in self.configs:
+		if not prog in self.configs or not prog in self.instance:
 			return
 		
 		print(self.instance)
 		
 		for process in self.instance[prog]:
-			process.stop()
+			await process.stop()
 
 		pass
 
@@ -93,6 +143,7 @@ class Taskmaster:
 			line = await asyncio.get_event_loop().run_in_executor(None, input)
 			logger.info("After get")
 			if not line:
+				logger.info("test not line")
 				continue # entrée vide
 			
 			parts = line.split()
@@ -115,3 +166,5 @@ class Taskmaster:
 				case _:
 					print("Commande inconnue")
 			logger.info("After case")
+		
+		return

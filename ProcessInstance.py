@@ -1,12 +1,11 @@
 from ProgramConfig import ProgramConfig
 from utils import FdManager
-from logger import Logger
+from logger import logger
 from utils import State
 import asyncio
-import subprocess # TODO
+import signal
 import os
 
-logger = Logger()
 
 class ProcessInstance:
 	"Identity : PID PPID"
@@ -31,12 +30,6 @@ class ProcessInstance:
 		self.process_name = f"{self.config.name}_{self.index}"
 	
 	async def start(self):
-		# print(shlex.split(self.config.cmd))
-		# print(self.config)
-
-		if not self.config.autostart:
-			return
-
 		logger.info(f"{self.process_name} INIT")
 
 		self.state = State.INIT
@@ -63,26 +56,27 @@ class ProcessInstance:
 		asyncio.create_task(self.monitor())
 
 	async def monitor(self):
-		if self.pid.returncode is None:
-			try:
-				await asyncio.wait_for(self.pid.wait(), self.config.starttime)
-				if not self.pid.returncode in self.config.exitcodes:
-					self.state = State.FAILED
-					logger.info(f"{self.process_name} FAILED (monitor 1)")
-			except asyncio.TimeoutError:
-				self.state = State.RUNNING
-				logger.info(f"{self.process_name} RUNNING")
+		# if self.pid.returncode is None:
+		try:
+			await asyncio.wait_for(self.pid.wait(), self.config.starttime)
+			if not self.pid.returncode in self.config.exitcodes:
+				self.state = State.FAILED
+				logger.info(f"{self.process_name} FAILED (startup time) {self.pid.returncode}")
+		except asyncio.TimeoutError:
+			self.state = State.RUNNING
+			logger.info(f"{self.process_name} RUNNING")
 
 		
 		await self.pid.wait()
 		if self.pid.returncode in self.config.exitcodes:
 			self.state = State.SUCCESS
-			logger.info(f"{self.process_name} SUCCESS (monitor)")
+			logger.info(f"{self.process_name} SUCCESS (code: {self.pid.returncode})")
 			return
 
 		else:
-			self.state = State.FAILED
-			logger.info(f"{self.process_name} FAILED (monitor 2)")
+			if self.state != State.FAILED:
+				self.state = State.FAILED
+				logger.info(f"{self.process_name} FAILED (unexpected exit code) {self.pid.returncode}")
 
 		should_restart = False
 		if self.config.autorestart in ("unexpected", "always"):
@@ -103,13 +97,24 @@ class ProcessInstance:
 	async def stop(self):
 		if self.state != State.RUNNING:
 			return
-		
-		self.pid.terminate()
-		self.state = State.STOPPED
+		# 
+		# self.pid.terminate()
+		# self.state = State.STOPPED
+		# try:
+			# self.pid.wait(timeout=self.config.stoptime)
+		# except subprocess.TimeoutExpired:
+			# self.pid.kill()
+			# self.state = State.KILLED
+
+		self.pid.send_signal(self.config.stopsignal)
 		try:
-			self.pid.wait(timeout=self.config.stoptime)
-		except subprocess.TimeoutExpired:
-			self.pid.kill()
+			await asyncio.wait_for(self.pid.wait(), timeout=self.config.stoptime)
+			self.state = State.STOPPED
+			logger.info(f"{self.process_name} stopped")
+		except asyncio.TimeoutError:
+			logger.warning(f"{self.process_name} stop time exceeded, send kill")
+			self.pid.send_signal(signal.SIGTERM)
+			await asyncio.wait()
 			self.state = State.KILLED
 
 	def status(self):

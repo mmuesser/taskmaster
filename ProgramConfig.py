@@ -1,15 +1,14 @@
 from enum import Enum
 import signal
-from logger import Logger
+from logger import logger
 from utils import State
-
-logger = Logger()
 
 def get_signal(string: str):
 	sig = signal.Signals.SIGSTOP
 	try :
 		sig = signal.Signals.__getitem__(string).value
 	except KeyError:
+		logger.warning(f"{string} not in signal, default to SIGSTOP")
 		pass
 	return sig
 
@@ -53,3 +52,6 @@ class ProgramConfig:
 		if not isinstance(other, ProgramConfig):
 			return False
 		return vars(self) == vars(other)
+	
+	def __hash__(self):
+		return hash(vars(self).values())

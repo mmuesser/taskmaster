@@ -27,8 +27,10 @@ class Logger:
     def error(self, msg : str):
         self.logger.error(msg)
 
+logger = Logger()
+
 if __name__ == '__main__':
-    logger = Logger()
+    # logger = Logger()
     logger.debug("test blabla")
     logger.info("test blabla 2")
     logger.warning("test blabla 3")
