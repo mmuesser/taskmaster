@@ -21,13 +21,8 @@ class FdManager:
 
 	def __init__(self, stdout, stderr):
 		# /dev/null -> -3
-		self.stdout = open(stdout, 'a') if stdout != '/dev/null' else stdout
-		self.stderr = open(stderr, 'a') if stderr != '/dev/null' else stderr
-		# self.stdout = stdout
-		# self.stderr = stderr
+		self.stdout = open(stdout, 'a')
+		self.stderr = open(stderr, 'a')
 
 	def close(self):
-		for fd in (self.stdout, self.stderr):
-			if fd == '/dev/null':
-				continue
-			fd.close()
+		[fd.close() for fd in (self.stdout, self.stderr)]

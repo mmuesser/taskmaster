@@ -1,6 +1,6 @@
 programs:
   nginx:
-    cmd: "ls -R /home/echapus"
+    cmd: "sleep 10"
     numprocs: 6
     umask: 022
     workingdir: /tmp
@@ -13,8 +13,6 @@ programs:
     starttime: 5
     stopsignal: SIGTERM
     stoptime: 10
-    stdout: /tmp/nginx.stdout
-    stderr: /tmp/nginx.stderr
     env:
       STARTED_BY: taskmaster
       ANSWER: '42'

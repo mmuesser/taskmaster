@@ -57,8 +57,6 @@ class ProcessInstance:
 			self.state = State.FAILED
 			logger.info(f"{self.process_name} FAILED (start)")
 
-		print(self.pid)
-
 	async def monitor(self) -> bool:
 		try:
 			await asyncio.wait_for(self.pid.wait(), self.config.starttime)
@@ -98,14 +96,6 @@ class ProcessInstance:
 	async def stop(self):
 		if self.state != State.RUNNING:
 			return
-		# 
-		# self.pid.terminate()
-		# self.state = State.STOPPED
-		# try:
-			# self.pid.wait(timeout=self.config.stoptime)
-		# except subprocess.TimeoutExpired:
-			# self.pid.kill()
-			# self.state = State.KILLED
 
 		self.pid.send_signal(self.config.stopsignal)
 		try:
@@ -117,12 +107,8 @@ class ProcessInstance:
 			self.pid.send_signal(signal.SIGTERM)
 			await asyncio.wait()
 			self.state = State.KILLED
+		self.fds.close()
 
 	def status(self):
-		if self.pid.returncode is None:
-			# TODO
-			print(f"{self.config.name}_{self.index} is RUNNING")
-			# self.state = State.RUNNING  # à changer
-		else:
-			print(f"{self.config.name}_{self.index} is {self.state.value}")
+		logger.info(f"{self.config.name}_{self.index} is {self.state.value}")
 

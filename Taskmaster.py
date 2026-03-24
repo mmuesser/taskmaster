@@ -11,11 +11,19 @@ class Taskmaster:
 
 	def __init__(self, configs: List[ProgramConfig]):
 		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
-		self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
+		self.instances: Dict[str, List[ProcessInstance]] = {} # à remplir
 		self.running: bool = True
+		self.known_cmd = ["start", "stop", "restart", "reload", "status", "exit"]
 		TabComplete.key_words.extend(list(self.configs.keys()))
-		TabComplete.key_words.extend(["start", "stop", "restart", "reload", "status", "exit"])
-		self.cmd = {"status": self.status, "reload": self.reload, "start": self.start, "restart": self.restart, "stop": self.stop}
+		TabComplete.key_words.extend(self.known_cmd)
+		self.cmd = {
+			"status": self.status,
+			"reload": self.reload,
+			"start": self.start,
+			"restart": self.restart,
+			"stop": self.stop,
+			"unknown": self.unknown,
+		}
 
 	async def setup(self):
 		"lancer tout les process avec process.start()"
@@ -27,6 +35,7 @@ class Taskmaster:
 				asyncio.create_task(self.start(name))
 		
 		await self.run_shell()
+		await self.clean_up()
 		pass
 
 	@classmethod
@@ -35,36 +44,25 @@ class Taskmaster:
 			config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items()]
 		return config
 
-	def clean_up(self):
-		"sig STOP or KILL pour tout les process."
-		logger.info("CLEAN UP")
-		pass
+	async def clean_up(self):
+		for name in self.instances:
+			await self.stop(name)
+		
 
 	async def status(self, _):
 		"afficher le status des process (running, existed, etc.)"
 		logger.info("General Status")
-		if not self.instance:
+		if not self.instances:
 			logger.info("Nothing has been launched yet")
 			return
 		
-		for k, v in self.instance.items():
+		for _, v in self.instances.items():
 			for proc in v:
 				proc.status()
 
 	async def reload(self, _):
 		"relancer le parsing du yml"
 		new_config: List[ProgramConfig] = Taskmaster.load_config()
-		# to_reload: Set[ProgramConfig] = set(self.configs.values()) & set(new_config)
-
-		# logger.debug(f"to reload {to_reload}")
-
-		# for conf in to_reload:
-			# name = conf.name
-			# self.configs[name] = conf
-			# 
-			# await self.stop(name)
-			# asyncio.create_task(self.start(name))
-
 		if not (set(self.configs.values()) - set(new_config)):
 			logger.info("Nothing to reload")
 			return
@@ -92,8 +90,6 @@ class Taskmaster:
 			if conf.autostart:
 				asyncio.create_task(self.start(name))
 
-		pass
-
 	async def start(self, prog):
 		"démarrer si besoin le programme avec le bon nombre de process"
 		logger.info(f"Start de {prog}")
@@ -112,33 +108,34 @@ class Taskmaster:
 			asyncio.create_task(process.start())
 			proc_instance.append(process)
 
-		self.instance[prog] = proc_instance
-
-		pass
+		self.instances[prog] = proc_instance
 
 	async def stop(self, prog):
 		"arrêter le programme s'il existe avec tout ses process"
 		logger.info(f"Stop de {prog}")
-		if not prog in self.configs or not prog in self.instance:
+		if not prog in self.configs or not prog in self.instances:
 			return
 		
-		print(self.instance)
+		print(self.instances)
 		
-		for process in self.instance[prog]:
+		for process in self.instances[prog]:
 			await process.stop()
 
-		pass
-
 	async def restart(self, prog):
-		"sûrment moyen de faire self.stop et self.start l'un après l'autre"
 		logger.info(f"Restart de {prog}")
-		self.stop(prog)
-		self.start(prog)
-		pass
+		await self.stop(prog)
+		asyncio.create_task(self.start(prog))
 	
+	async def unknown(self, cmd):
+		logger.info(f'"{cmd}" command not found')
+
 	def parsing(self, line) -> tuple[str, str]:
 		parts = line.split()
 		cmd = parts[0]
+		
+		if cmd not in self.known_cmd:
+			return 'unknown', line
+		
 		match len(parts):
 			case 1:
 				prg = ""
@@ -146,6 +143,7 @@ class Taskmaster:
 				prg = parts[1]
 			case _:
 				logger.warning("Trop d'arguments")
+				return 'skip', None
 		
 		return cmd, prg
 
@@ -160,5 +158,8 @@ class Taskmaster:
 			cmd, prg = self.parsing(line)
 			if cmd == "exit":
 				break
+			if cmd == "skip":
+				continue
+			
 			asyncio.create_task(self.cmd[cmd](prg))
 		return
