@@ -4,12 +4,12 @@ programs:
     numprocs: 6
     umask: 022
     workingdir: /tmp
-    autostart: false
-    autorestart: unexpected
+    autostart: true
+    autorestart: never
     exitcodes:
       - 0
       - 2
-    startretries: 0
+    startretries: 2
     starttime: 5
     stopsignal: SIGTERM
     stoptime: 10
@@ -19,7 +19,7 @@ programs:
       STARTED_BY: taskmaster
       ANSWER: '42'
   vogsphere:
-    cmd: "qsdqsdqsdqsdqsdqsdqsdqsd"
+    cmd: "sleep 2"
     numprocs: 1
     umask: 077
     workingdir: /tmp

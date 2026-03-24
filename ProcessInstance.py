@@ -30,10 +30,17 @@ class ProcessInstance:
 		self.process_name = f"{self.config.name}_{self.index}"
 	
 	async def start(self):
-		logger.info(f"{self.process_name} INIT")
 
 		self.state = State.INIT
 
+		await self.launch()
+		while await self.monitor() == False:
+			logger.info("boucle start")
+			await self.launch()
+
+
+	async def launch(self):
+		logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
 		try:
 			self.pid = await asyncio.create_subprocess_shell(
 				cmd=self.config.cmd,
@@ -49,14 +56,10 @@ class ProcessInstance:
 		except OSError:
 			self.state = State.FAILED
 			logger.info(f"{self.process_name} FAILED (start)")
-			return # ?
 
 		print(self.pid)
 
-		asyncio.create_task(self.monitor())
-
-	async def monitor(self):
-		# if self.pid.returncode is None:
+	async def monitor(self) -> bool:
 		try:
 			await asyncio.wait_for(self.pid.wait(), self.config.starttime)
 			if not self.pid.returncode in self.config.exitcodes:
@@ -71,7 +74,7 @@ class ProcessInstance:
 		if self.pid.returncode in self.config.exitcodes:
 			self.state = State.SUCCESS
 			logger.info(f"{self.process_name} SUCCESS (code: {self.pid.returncode})")
-			return
+			return True
 
 		else:
 			if self.state != State.FAILED:
@@ -79,19 +82,17 @@ class ProcessInstance:
 				logger.info(f"{self.process_name} FAILED (unexpected exit code) {self.pid.returncode}")
 
 		should_restart = False
-		if self.config.autorestart in ("unexpected", "always"):
+		if self.config.autorestart == "always" or (self.config.autorestart == "unexpected" and not self.pid.returncode in self.config.exitcodes):
 			should_restart = True
-
-		if not should_restart or self.restart_count == self.config.startretries:
-			return
 
 		self.restart_count += 1
 
-		logger.debug(f"{self.process_name} RESTART")
+		if not should_restart or self.restart_count > self.config.startretries:
+			return True
 
-		
-		#TODO REFACTO
-		asyncio.create_task(self.start())
+
+		logger.debug(f"{self.process_name} RESTART")
+		return False
 
 
 	async def stop(self):

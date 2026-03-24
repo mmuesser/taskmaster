@@ -14,7 +14,8 @@ class Taskmaster:
 		self.instance: Dict[str, List[ProcessInstance]] = {} # à remplir
 		self.running: bool = True
 		TabComplete.key_words.extend(list(self.configs.keys()))
-		TabComplete.key_words.extend(["start", "stop", "restart", "reload", "status"])
+		TabComplete.key_words.extend(["start", "stop", "restart", "reload", "status", "exit"])
+		self.cmd = {"status": self.status, "reload": self.reload, "start": self.start, "restart": self.restart, "stop": self.stop}
 
 	async def setup(self):
 		"lancer tout les process avec process.start()"
@@ -39,7 +40,7 @@ class Taskmaster:
 		logger.info("CLEAN UP")
 		pass
 
-	async def status(self):
+	async def status(self, _):
 		"afficher le status des process (running, existed, etc.)"
 		logger.info("General Status")
 		if not self.instance:
@@ -50,7 +51,7 @@ class Taskmaster:
 			for proc in v:
 				proc.status()
 
-	async def reload(self):
+	async def reload(self, _):
 		"relancer le parsing du yml"
 		new_config: List[ProgramConfig] = Taskmaster.load_config()
 		# to_reload: Set[ProgramConfig] = set(self.configs.values()) & set(new_config)
@@ -134,37 +135,30 @@ class Taskmaster:
 		self.stop(prog)
 		self.start(prog)
 		pass
+	
+	def parsing(self, line) -> tuple[str, str]:
+		parts = line.split()
+		cmd = parts[0]
+		match len(parts):
+			case 1:
+				prg = ""
+			case 2:
+				prg = parts[1]
+			case _:
+				logger.warning("Trop d'arguments")
+		
+		return cmd, prg
 
 	async def run_shell(self):
 		print("<<Taskmaster shell>>")
 
 		while self.running:
-			logger.info("Before get")
 			line = await asyncio.get_event_loop().run_in_executor(None, input)
-			logger.info("After get")
 			if not line:
-				logger.info("test not line")
 				continue # entrée vide
 			
-			parts = line.split()
-			if not parts:
-				continue # sécu
-			logger.info("Before case")
-			match parts[0]:
-				case "status":
-					asyncio.create_task(self.status())
-				case "reload":
-					asyncio.create_task(self.reload())
-				case "start":
-					asyncio.create_task(self.start(parts[1]))
-				case "stop":
-					asyncio.create_task(self.stop(parts[1]))
-				case "restart":
-					asyncio.create_task(self.restart(parts[1]))
-				case "exit":
-					self.running = False
-				case _:
-					print("Commande inconnue")
-			logger.info("After case")
-		
+			cmd, prg = self.parsing(line)
+			if cmd == "exit":
+				break
+			asyncio.create_task(self.cmd[cmd](prg))
 		return

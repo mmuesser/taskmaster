@@ -35,15 +35,12 @@ class ProgramConfig:
 		self.name = name
 		lst_attr = {k: v for k, v in ProgramConfig.__dict__.items() if not callable(v) and not k.startswith("__")}
 		for key in lst_attr:
-			# setattr(self, key, prog[key] if isinstance(prog.get(key, None), lst_attr[key][0]) else (lst_attr[key][1] and print(self.name, ": Base value ", lst_attr[key][1], "is set for", key)))
 			value = prog.get(key, None)
 			if not isinstance(value, lst_attr[key][0]):
 				value = lst_attr[key][1]
-				# print(self.name, ": Base value", value, "is set for", key)
 				logger.info(f"{self.name}: Base value {value} is set for {key}")
 			setattr(self, key, value)
 		self.stopsignal = get_signal(self.stopsignal)
-		# print(self)
 
 	def __str__(self) -> str:
 		return str(vars(self))
