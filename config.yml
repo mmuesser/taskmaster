@@ -1,6 +1,6 @@
 programs:
   nginx:
-    cmd: "sleep 10"
+    cmd: "echo $ANSWER"
     numprocs: 6
     umask: 022
     workingdir: /tmp
@@ -13,9 +13,9 @@ programs:
     starttime: 5
     stopsignal: SIGTERM
     stoptime: 10
+    stdout: nginx.stdout
     env:
       STARTED_BY: taskmaster
-      ANSWER: '42'
   vogsphere:
     cmd: "sleep 2"
     numprocs: 1

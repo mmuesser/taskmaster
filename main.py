@@ -12,5 +12,7 @@ if __name__ == "__main__":
 	tm = Taskmaster(Taskmaster.load_config())
 	try:
 		asyncio.run(tm.setup())
-	except (EOFError, KeyboardInterrupt):
-		tm.clean_up()
+	except KeyboardInterrupt:
+		print('Press Enter to exit')
+		# asyncio.run(tm.clean_up())
+		pass

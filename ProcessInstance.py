@@ -33,10 +33,13 @@ class ProcessInstance:
 
 		self.state = State.INIT
 
-		await self.launch()
-		while await self.monitor() == False:
-			logger.info("boucle start")
+		try:
 			await self.launch()
+			while await self.monitor() == False:
+				logger.info("boucle start")
+				await self.launch()
+		except asyncio.CancelledError:
+			await self.stop()
 
 
 	async def launch(self):
@@ -94,7 +97,7 @@ class ProcessInstance:
 
 
 	async def stop(self):
-		if self.state != State.RUNNING:
+		if not self.state in (State.RUNNING, State.STARTING):
 			return
 
 		self.pid.send_signal(self.config.stopsignal)

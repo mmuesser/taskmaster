@@ -26,17 +26,15 @@ class Taskmaster:
 		}
 
 	async def setup(self):
-		"lancer tout les process avec process.start()"
-		"lancer la main loop avec run shell"
-		"clean les process pour l'exit"
-
 		for name, conf in self.configs.items():
 			if conf.autostart:
 				asyncio.create_task(self.start(name))
-		
-		await self.run_shell()
+		try:
+			await self.run_shell()
+		except (asyncio.exceptions.CancelledError):
+			print('Press Enter to exit')
+
 		await self.clean_up()
-		pass
 
 	@classmethod
 	def load_config(self) -> List[ProgramConfig]:
@@ -45,8 +43,17 @@ class Taskmaster:
 		return config
 
 	async def clean_up(self):
-		for name in self.instances:
-			await self.stop(name)
+		logger.debug('inside clean up')
+
+		tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+	
+		for task in tasks:
+			task.cancel()
+	
+		await asyncio.gather(*tasks, return_exceptions=True)
+
+		# for name in self.instances:
+			# await self.stop(name)
 		
 
 	async def status(self, _):
@@ -111,15 +118,14 @@ class Taskmaster:
 		self.instances[prog] = proc_instance
 
 	async def stop(self, prog):
-		"arrêter le programme s'il existe avec tout ses process"
 		logger.info(f"Stop de {prog}")
 		if not prog in self.configs or not prog in self.instances:
 			return
 		
-		print(self.instances)
-		
 		for process in self.instances[prog]:
 			await process.stop()
+
+		self.instances[prog] = []
 
 	async def restart(self, prog):
 		logger.info(f"Restart de {prog}")
@@ -151,15 +157,18 @@ class Taskmaster:
 		print("<<Taskmaster shell>>")
 
 		while self.running:
-			line = await asyncio.get_event_loop().run_in_executor(None, input)
-			if not line:
-				continue # entrée vide
-			
-			cmd, prg = self.parsing(line)
-			if cmd == "exit":
+			try:
+				line = await asyncio.get_event_loop().run_in_executor(None, input)
+				if not line:
+					continue # entrée vide
+				
+				cmd, prg = self.parsing(line)
+				if cmd == "exit":
+					break
+				if cmd == "skip":
+					continue
+				
+				asyncio.create_task(self.cmd[cmd](prg))
+			except EOFError:
 				break
-			if cmd == "skip":
-				continue
-			
-			asyncio.create_task(self.cmd[cmd](prg))
 		return
