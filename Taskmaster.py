@@ -82,6 +82,7 @@ class Taskmaster:
 			name = conf.name
 			await self.stop(name)
 			del self.configs[name]
+			del self.instances[name]
 
 		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
 
@@ -123,10 +124,10 @@ class Taskmaster:
 			return
 		
 		for process in self.instances[prog]:
-			await process.stop()
+			asyncio.create_task(process.stop())
 
 		# self.instances[prog] = []
-		del self.instances[prog]
+		# del self.instances[prog]
 
 	async def restart(self, prog):
 		logger.info(f"Restart de {prog}")

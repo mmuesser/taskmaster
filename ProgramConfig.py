@@ -4,7 +4,7 @@ from logger import logger
 from utils import State
 
 def get_signal(string: str):
-	sig = signal.Signals.SIGSTOP
+	sig = signal.Signals.SIGFPE
 	try :
 		sig = signal.Signals.__getitem__(string).value
 	except KeyError:

@@ -72,6 +72,8 @@ class ProcessInstance:
 
 		
 		await self.pid.wait()
+		if self.killed:
+			return
 		if self.pid.returncode in self.config.exitcodes:
 			self.state = State.SUCCESS
 			logger.info(f"{self.process_name} SUCCESS (code: {self.pid.returncode})")
@@ -101,6 +103,7 @@ class ProcessInstance:
 			return
 
 		self.pid.send_signal(self.config.stopsignal)
+		self.killed = True
 		try:
 			self.pid.send_signal(signal.SIGTERM)
 			await asyncio.wait_for(self.pid.wait(), timeout=self.config.stoptime)
@@ -109,8 +112,9 @@ class ProcessInstance:
 		except asyncio.TimeoutError:
 			logger.warning(f"{self.process_name} stop time exceeded, send kill")
 			# await asyncio.wait(self.pid)
-			await self.pid.kill()
+			self.pid.kill()
 			self.state = State.KILLED
+			logger.info(f"{self.process_name} killed")
 		self.fds.close()
 
 	def status(self):
