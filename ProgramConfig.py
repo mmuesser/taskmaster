@@ -24,7 +24,7 @@ class ProgramConfig:
 	exitcodes = (list, [])
 	startretries = (int, 0)
 	starttime = (int, 0)
-	stopsignal = (str, "SIGSTOP")
+	stopsignal = (str, signal.Signals.SIGSTOP)
 	stoptime = (int, 0)
 	stdout = (str, "/dev/null")
 	stderr = (str, "/dev/null")

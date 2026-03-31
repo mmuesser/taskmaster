@@ -102,13 +102,14 @@ class ProcessInstance:
 
 		self.pid.send_signal(self.config.stopsignal)
 		try:
+			self.pid.send_signal(signal.SIGTERM)
 			await asyncio.wait_for(self.pid.wait(), timeout=self.config.stoptime)
 			self.state = State.STOPPED
 			logger.info(f"{self.process_name} stopped")
 		except asyncio.TimeoutError:
 			logger.warning(f"{self.process_name} stop time exceeded, send kill")
-			self.pid.send_signal(signal.SIGTERM)
-			await asyncio.wait()
+			# await asyncio.wait(self.pid)
+			await self.pid.kill()
 			self.state = State.KILLED
 		self.fds.close()
 

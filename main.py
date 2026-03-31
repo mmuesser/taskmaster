@@ -9,10 +9,10 @@ readline.set_completer(TabComplete.auto_complete)
 
 
 if __name__ == "__main__":
+	
 	tm = Taskmaster(Taskmaster.load_config())
 	try:
 		asyncio.run(tm.setup())
-	except KeyboardInterrupt:
-		print('Press Enter to exit')
-		# asyncio.run(tm.clean_up())
-		pass
+	except (EOFError, KeyboardInterrupt):
+		# TODO CTRL+C
+		tm.clean_up()

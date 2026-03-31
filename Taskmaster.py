@@ -125,7 +125,8 @@ class Taskmaster:
 		for process in self.instances[prog]:
 			await process.stop()
 
-		self.instances[prog] = []
+		# self.instances[prog] = []
+		del self.instances[prog]
 
 	async def restart(self, prog):
 		logger.info(f"Restart de {prog}")
