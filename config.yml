@@ -4,7 +4,7 @@ programs:
     numprocs: 6
     umask: 022
     workingdir: /tmp
-    autostart: true
+    autostart: false
     autorestart: never
     exitcodes:
       - 0
@@ -32,10 +32,10 @@ programs:
     stdout: /tmp/vgsworker.stdout
     stderr: /tmp/vgsworker.stderr
   test:
-    cmd: "cat /dev/random"
-    numprocs: 3
-    umask: 077
-    workingdir: /tmp
+    cmd: "touch testfile && ls -l testfile"
+    numprocs: 1
+    umask: 022
+    workingdir: /app
     autostart: true
     autorestart: unexpected
     exitcodes: 
@@ -44,5 +44,8 @@ programs:
     starttime: 0
     stopsignal: USR1
     stoptime: 1
-    stdout: /tmp/vgsworker.stdout
-    stderr: /tmp/vgsworker.stderr
+    stdout: test.stdout
+    stderr: test.stderr
+
+  asd:
+    asdasd:

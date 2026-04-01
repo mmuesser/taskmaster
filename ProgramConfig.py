@@ -20,7 +20,7 @@ class ProgramConfig:
 	umask = (int, 0o000)
 	workingdir = (str, "/tmp")
 	autostart = (bool, True)
-	autorestart = (str, None)
+	autorestart = (str, 'never')
 	exitcodes = (list, [])
 	startretries = (int, 0)
 	starttime = (int, 0)
@@ -39,7 +39,13 @@ class ProgramConfig:
 			if not isinstance(value, lst_attr[key][0]):
 				value = lst_attr[key][1]
 				logger.info(f"{self.name}: Base value {value} is set for {key}")
+			elif isinstance(value, int) and value < 0:
+				logger.info(f"{self.name}: Value {value} for {key} can't be negative, default to 0")
+				value = 0
 			setattr(self, key, value)
+		
+		if not self.cmd:
+			raise ValueError(f'{self.name}: minimal config requiere cmd to not be empty')
 		self.stopsignal = get_signal(self.stopsignal)
 
 	def __str__(self) -> str:

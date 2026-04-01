@@ -41,15 +41,13 @@ class ProcessInstance:
 		except asyncio.CancelledError:
 			await self.stop()
 
-
 	async def launch(self):
 		logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
 		try:
 			self.pid = await asyncio.create_subprocess_shell(
-				cmd=self.config.cmd,
+				cmd=f"umask {self.config.umask} && {self.config.cmd}",
 				stdout=self.fds.stdout,
 				stderr=self.fds.stderr,
-				umask=self.config.umask,
 				env= dict(os.environ, **self.config.env),
 				cwd=self.config.workingdir
 			)

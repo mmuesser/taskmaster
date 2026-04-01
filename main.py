@@ -1,5 +1,7 @@
 import readline
 import asyncio
+from sys import exit
+import yaml
 from utils import TabComplete
 from logger import logger
 from Taskmaster import Taskmaster
@@ -10,7 +12,11 @@ readline.set_completer(TabComplete.auto_complete)
 
 if __name__ == "__main__":
 	
-	tm = Taskmaster(Taskmaster.load_config())
+	try:
+		tm = Taskmaster(Taskmaster.load_config())
+	except (yaml.YAMLError):
+		logger.warning("Cannot load config file, ending")
+		exit()
 	try:
 		asyncio.run(tm.setup())
 	except (EOFError, KeyboardInterrupt):

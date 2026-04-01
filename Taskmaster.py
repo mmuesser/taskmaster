@@ -38,8 +38,15 @@ class Taskmaster:
 
 	@classmethod
 	def load_config(self) -> List[ProgramConfig]:
+		config = []
 		with open(self.config_file, 'r', encoding='utf-8') as file:
-			config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items()]
+			for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items():
+				try:
+					config.append(ProgramConfig(v, k))
+				except ValueError as e:
+					logger.warning(e)
+				
+			# config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items()]
 		return config
 
 	async def clean_up(self):
@@ -69,7 +76,11 @@ class Taskmaster:
 
 	async def reload(self, _):
 		"relancer le parsing du yml"
-		new_config: List[ProgramConfig] = Taskmaster.load_config()
+		try:
+			new_config: List[ProgramConfig] = Taskmaster.load_config()
+		except yaml.YAMLError:
+			logger.warning("Invalid config file, config cannot be reloaded")
+			return
 		if not (set(self.configs.values()) - set(new_config)):
 			logger.info("Nothing to reload")
 			return
