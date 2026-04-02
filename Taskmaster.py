@@ -14,8 +14,8 @@ class Taskmaster:
 		self.instances: Dict[str, List[ProcessInstance]] = {}
 		self.running: bool = True
 		self.known_cmd = ["start", "stop", "restart", "reload", "status", "exit"]
-		TabComplete.key_words.extend(list(self.configs.keys()))
-		TabComplete.key_words.extend(self.known_cmd)
+		TabComplete.key_words.update(list(self.configs.keys()))
+		TabComplete.key_words.update(self.known_cmd)
 		self.cmd = {
 			"status": self.status,
 			"reload": self.reload,

@@ -36,12 +36,12 @@ class ProcessInstance:
 		logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
 		try:
 			self.pid = await asyncio.create_subprocess_shell(
-				cmd=self.config.cmd,
+				cmd=f"umask {str(oct(self.config.umask))[2:].zfill(3)} && {self.config.cmd}",
 				stdout=self.fds.stdout,
 				stderr=self.fds.stderr,
 				env= dict(os.environ, **self.config.env),
 				cwd=self.config.workingdir,
-				preexec_fn=self.set_umask
+				# preexec_fn=self.set_umask
 			)
 			self.state = State.STARTING
 			logger.info(f"{self.process_name} STARTING")
