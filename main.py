@@ -11,14 +11,14 @@ readline.set_completer(TabComplete.auto_complete)
 
 
 if __name__ == "__main__":
-	
 	try:
 		tm = Taskmaster(Taskmaster.load_config())
+		asyncio.run(tm.setup())
+	
 	except (yaml.YAMLError):
 		logger.warning("Cannot load config file, ending")
 		exit()
-	try:
-		asyncio.run(tm.setup())
+	
 	except (EOFError, KeyboardInterrupt):
 		# TODO CTRL+C
 		tm.clean_up()

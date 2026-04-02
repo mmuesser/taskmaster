@@ -13,7 +13,6 @@ def get_signal(string: str):
 	return sig
 
 
-"Verifier comportement si config a des champs en TROP"
 class ProgramConfig:
 	cmd = (str, "")
 	numprocs = (int, 1)

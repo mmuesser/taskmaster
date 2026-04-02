@@ -11,7 +11,7 @@ class State(Enum):
 
 class TabComplete:
 
-	key_words = []
+	key_words = set()
 
 	@classmethod
 	def auto_complete(cls, text, state):

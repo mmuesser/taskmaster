@@ -8,17 +8,6 @@ import os
 
 
 class ProcessInstance:
-	"Identity : PID PPID"
-	"State : State  CPU TIME"
-	"Files : FD"
-	"ENV : ENVP CWD ROOT DIR"
-	"SIGNALS : "
-	"PATH"
-	"ARG"
-
-	"HERITE DE :"
-	"FD - ENVP - CWD - UID/GID"
-
 	def __init__(self, config: ProgramConfig, index: int):
 		self.pid = None
 		self.index = index
@@ -28,6 +17,9 @@ class ProcessInstance:
 		self.restart_count: int = 0
 		self.killed: bool = False
 		self.process_name = f"{self.config.name}_{self.index}"
+
+	def set_umask(self):
+		os.umask(int(str(self.config.umask), 8))
 	
 	async def start(self):
 
@@ -36,7 +28,6 @@ class ProcessInstance:
 		try:
 			await self.launch()
 			while await self.monitor() == False:
-				logger.info("boucle start")
 				await self.launch()
 		except asyncio.CancelledError:
 			await self.stop()
@@ -45,11 +36,12 @@ class ProcessInstance:
 		logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
 		try:
 			self.pid = await asyncio.create_subprocess_shell(
-				cmd=f"umask {self.config.umask} && {self.config.cmd}",
+				cmd=self.config.cmd,
 				stdout=self.fds.stdout,
 				stderr=self.fds.stderr,
 				env= dict(os.environ, **self.config.env),
-				cwd=self.config.workingdir
+				cwd=self.config.workingdir,
+				preexec_fn=self.set_umask
 			)
 			self.state = State.STARTING
 			logger.info(f"{self.process_name} STARTING")

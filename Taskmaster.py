@@ -11,7 +11,7 @@ class Taskmaster:
 
 	def __init__(self, configs: List[ProgramConfig]):
 		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
-		self.instances: Dict[str, List[ProcessInstance]] = {} # à remplir
+		self.instances: Dict[str, List[ProcessInstance]] = {}
 		self.running: bool = True
 		self.known_cmd = ["start", "stop", "restart", "reload", "status", "exit"]
 		TabComplete.key_words.extend(list(self.configs.keys()))
@@ -94,6 +94,10 @@ class Taskmaster:
 			await self.stop(name)
 			del self.configs[name]
 			del self.instances[name]
+			try:
+				TabComplete.key_words.remove(name)
+			except KeyError:
+				pass
 
 		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
 
