@@ -50,7 +50,7 @@ class Taskmaster:
 		return config
 
 	async def clean_up(self):
-		logger.debug('inside clean up')
+		# logger.debug('inside clean up')
 
 		tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
 	
@@ -87,7 +87,7 @@ class Taskmaster:
 
 		to_stop: Set[ProgramConfig] = set(self.configs.values()) - set(new_config)
 
-		logger.debug(f"to stop {to_stop}")
+		# logger.debug(f"to stop {to_stop}")
 
 		for conf in to_stop:
 			name = conf.name
@@ -101,7 +101,7 @@ class Taskmaster:
 
 		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
 
-		logger.debug(f"to start / restart {to_start}")
+		# logger.debug(f"to start / restart {to_start}")
 
 		for conf in to_start:
 			name = conf.name
@@ -114,8 +114,9 @@ class Taskmaster:
 				asyncio.create_task(self.start(name))
 
 	async def start(self, prog):
-		"démarrer si besoin le programme avec le bon nombre de process"
-		logger.info(f"Start de {prog}")
+		if prog not in self.configs:
+			return
+		logger.info(f"Start {prog}")
 
 		if not prog in self.configs:
 			return
@@ -124,17 +125,19 @@ class Taskmaster:
 
 		config: ProgramConfig = self.configs[prog]
 
-		logger.debug(f"lancement de {config.numprocs} process")
-
 		for i in range(config.numprocs):
 			process = ProcessInstance(config, i)
 			asyncio.create_task(process.start())
 			proc_instance.append(process)
+		if config.numprocs:
+			logger.info(f'{config.numprocs} process as been started')
 
 		self.instances[prog] = proc_instance
 
 	async def stop(self, prog):
-		logger.info(f"Stop de {prog}")
+		if prog not in self.configs:
+			return
+		logger.info(f"Stop {prog}")
 		if not prog in self.configs or not prog in self.instances:
 			return
 		
@@ -145,7 +148,9 @@ class Taskmaster:
 		# del self.instances[prog]
 
 	async def restart(self, prog):
-		logger.info(f"Restart de {prog}")
+		if prog not in self.configs:
+			return
+		logger.info(f"Restart {prog}")
 		await self.stop(prog)
 		asyncio.create_task(self.start(prog))
 	

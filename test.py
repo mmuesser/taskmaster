@@ -1,21 +1,41 @@
-#!/usr/bin/env python3
-from ProgramConfig import ProgramConfig
-import yaml
+import asyncio
+import signal
 
-with open("config.yml") as file:
-    conf = yaml.load(file, Loader=yaml.FullLoader)
-    conf = list(conf.values())[0]
+class Programme:
+    def __init__(self):
+        self._reload_event = asyncio.Event()
 
-prog = []
+    async def run(self):
+        while True:
+            # Vérifie si un reload est demandé
+            if self._reload_event.is_set():
+                self._reload_event.clear()
+                await self.reload()
 
-for key in conf:
-    tmp = ProgramConfig(conf[key], key)
-    prog.append(tmp)
+            # Ton travail principal
+            await asyncio.sleep(1)
 
-print(tmp.name)
+    async def reload(self):
+        print("Reload demandé via SIGHUP")
+        # ton code de reload ici
 
+######################
 
-print(prog[0] == prog[1])
+def setup_signal_handlers(programme: Programme):
+    loop = asyncio.get_running_loop()
 
+    def on_sighup():
+        # On déclenche l'événement dans la loop async
+        programme._reload_event.set()
 
+    loop.add_signal_handler(signal.SIGHUP, on_sighup)
 
+##################
+
+async def main():
+    programme = Programme()
+    setup_signal_handlers(programme)
+    await programme.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())

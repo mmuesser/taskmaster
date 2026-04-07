@@ -1,7 +1,5 @@
-from enum import Enum
-import signal
+import signal, os
 from logger import logger
-from utils import State
 
 def get_signal(string: str):
 	sig = signal.Signals.SIGFPE
@@ -31,6 +29,9 @@ class ProgramConfig:
 
 
 	def __init__(self, prog, name):
+		if prog is None:
+			raise ValueError(f'Invalid yaml format')
+
 		self.name = name
 		lst_attr = {k: v for k, v in ProgramConfig.__dict__.items() if not callable(v) and not k.startswith("__")}
 		for key in lst_attr:
@@ -45,6 +46,7 @@ class ProgramConfig:
 		
 		if not self.cmd:
 			raise ValueError(f'{self.name}: minimal config requiere cmd to not be empty')
+		os.makedirs(self.workingdir, exist_ok=True)
 		self.stopsignal = get_signal(self.stopsignal)
 
 	def __str__(self) -> str:
