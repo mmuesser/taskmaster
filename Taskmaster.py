@@ -13,6 +13,7 @@ class Taskmaster:
 		self.configs: Dict[str, ProgramConfig] = {c.name:c for c in configs}
 		self.instances: Dict[str, List[ProcessInstance]] = {}
 		self.running: bool = True
+		self._reload_event = asyncio.Event()
 		self.known_cmd = ["start", "stop", "restart", "reload", "status", "exit"]
 		TabComplete.key_words.update(list(self.configs.keys()))
 		TabComplete.key_words.update(self.known_cmd)
@@ -46,12 +47,9 @@ class Taskmaster:
 				except ValueError as e:
 					logger.warning(e)
 				
-			# config = [ProgramConfig(v, k) for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items()]
 		return config
 
 	async def clean_up(self):
-		# logger.debug('inside clean up')
-
 		tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
 	
 		for task in tasks:
@@ -59,12 +57,8 @@ class Taskmaster:
 	
 		await asyncio.gather(*tasks, return_exceptions=True)
 
-		# for name in self.instances:
-			# await self.stop(name)
-		
 
 	async def status(self, _):
-		"afficher le status des process (running, existed, etc.)"
 		logger.info("General Status")
 		if not self.instances:
 			logger.info("Nothing has been launched yet")
@@ -170,7 +164,7 @@ class Taskmaster:
 			case 2:
 				prg = parts[1]
 			case _:
-				logger.warning("Trop d'arguments")
+				logger.warning("Too many values to unpack") # lol
 				return 'skip', None
 		
 		return cmd, prg
@@ -189,7 +183,7 @@ class Taskmaster:
 					break
 				if cmd == "skip":
 					continue
-				
+
 				asyncio.create_task(self.cmd[cmd](prg))
 			except EOFError:
 				break

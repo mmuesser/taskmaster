@@ -1,10 +1,10 @@
 programs:
-  nginx:
+  echo:
     cmd: "echo $ANSWER"
-    numprocs: 6
+    numprocs: 5
     umask: 022
     workingdir: /tmp
-    autostart: false
+    autostart: true
     autorestart: never
     exitcodes:
       - 0
@@ -13,10 +13,10 @@ programs:
     starttime: 5
     stopsignal: SIGTERM
     stoptime: 10
-    stdout: nginx.stdout
+    stdout: echo.stdout
     env:
       STARTED_BY: taskmaster
-  vogsphere:
+  sleep:
     cmd: "sleep 2"
     numprocs: 1
     umask: 077
@@ -29,13 +29,13 @@ programs:
     starttime: 3
     stopsignal: USR1
     stoptime: 10
-    stdout: /tmp/vgsworker.stdout
-    stderr: /tmp/vgsworker.stderr
+    stdout: /tmp/sleep.stdout
+    stderr: /tmp/sleep.stderr
   test:
     cmd: "touch testfile && ls -l testfile"
     numprocs: 1
     umask: 022
-    workingdir: /app
+    workingdir: /tmp
     autostart: true
     autorestart: unexpected
     exitcodes: 
@@ -48,4 +48,3 @@ programs:
     stderr: test.stderr
 
   asd:
-    asdasd:
