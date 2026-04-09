@@ -2,8 +2,9 @@ from ProgramConfig import ProgramConfig
 from ProcessInstance import ProcessInstance
 from utils import TabComplete, State
 from logger import logger
-import asyncio, yaml, signal
+import asyncio, yaml, signal, sys, os
 from typing import Dict, List, Set
+import readline
 
 class Taskmaster:
 
@@ -14,17 +15,17 @@ class Taskmaster:
 		self.instances: Dict[str, List[ProcessInstance]] = {}
 		self.running: bool = True
 		self._reload_event = asyncio.Event()
-		self.known_cmd = ["start", "stop", "restart", "reload", "status", "exit"]
-		TabComplete.key_words.update(list(self.configs.keys()))
-		TabComplete.key_words.update(self.known_cmd)
 		self.cmd = {
 			"status": self.status,
 			"reload": self.reload,
 			"start": self.start,
 			"restart": self.restart,
 			"stop": self.stop,
+			"list": self.list,
 			"unknown": self.unknown,
 		}
+		TabComplete.key_words.update(list(self.configs.keys()))
+		TabComplete.key_words.update(list(self.cmd.keys()) + ["exit"])
 
 	async def setup(self):
 		for name, conf in self.configs.items():
@@ -43,7 +44,9 @@ class Taskmaster:
 		with open(self.config_file, 'r', encoding='utf-8') as file:
 			for k, v in yaml.load(file, Loader=yaml.FullLoader).get("programs", {}).items():
 				try:
-					config.append(ProgramConfig(v, k))
+					conf = ProgramConfig(v, k)
+					[logger.info(err) for err in conf.errors]
+					config.append(conf)
 				except ValueError as e:
 					logger.warning(e)
 				
@@ -68,8 +71,13 @@ class Taskmaster:
 			for proc in v:
 				proc.status()
 
+	async def list(self, _):
+		logger.info("Programs loaded")
+
+		for _, conf in self.configs.items():
+			logger.info(conf)
+
 	async def reload(self, _):
-		"relancer le parsing du yml"
 		try:
 			new_config: List[ProgramConfig] = Taskmaster.load_config()
 		except yaml.YAMLError:
@@ -86,12 +94,9 @@ class Taskmaster:
 		for conf in to_stop:
 			name = conf.name
 			await self.stop(name)
-			del self.configs[name]
-			del self.instances[name]
-			try:
-				TabComplete.key_words.remove(name)
-			except KeyError:
-				pass
+			self.configs.pop(name, None)
+			self.instances.pop(name, None)
+			TabComplete.key_words.discard(name)
 
 		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
 
@@ -155,7 +160,7 @@ class Taskmaster:
 		parts = line.split()
 		cmd = parts[0]
 		
-		if cmd not in self.known_cmd:
+		if cmd not in self.cmd.keys():
 			return 'unknown', line
 		
 		match len(parts):
@@ -164,7 +169,7 @@ class Taskmaster:
 			case 2:
 				prg = parts[1]
 			case _:
-				logger.warning("Too many values to unpack") # lol
+				logger.warning("Command too long")
 				return 'skip', None
 		
 		return cmd, prg
@@ -177,7 +182,7 @@ class Taskmaster:
 				line = await asyncio.get_event_loop().run_in_executor(None, input)
 				if not line:
 					continue # entrée vide
-				
+				line = line.strip()
 				cmd, prg = self.parsing(line)
 				if cmd == "exit":
 					break
