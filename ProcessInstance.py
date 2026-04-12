@@ -52,22 +52,22 @@ class ProcessInstance:
 
 	async def monitor(self) -> bool:
 		try:
-			await asyncio.wait_for(self.pid.wait(), self.config.starttime)
-			if not self.pid.returncode in self.config.exitcodes:
-				self.state = State.FAILED
-				logger.info(f"{self.process_name} FAILED (startup time) {self.pid.returncode}")
+			await asyncio.wait_for(self.pid.wait(), timeout=self.config.starttime)
+			# if not self.pid.returncode in self.config.exitcodes:
+			self.state = State.FAILED
+			logger.info(f"{self.process_name} FAILED (startup time) {self.pid.returncode}")
 		except asyncio.TimeoutError:
 			self.state = State.RUNNING
 			logger.info(f"{self.process_name} RUNNING")
 
 		
 		await self.pid.wait()
-		if self.killed:
-			return
-		if self.pid.returncode in self.config.exitcodes:
+		# if self.killed:
+		# 	return
+		if self.pid.returncode in self.config.exitcodes and self.state != State.FAILED:
 			self.state = State.SUCCESS
 			logger.info(f"{self.process_name} SUCCESS (code: {self.pid.returncode})")
-			return True
+			# return True
 
 		else:
 			if self.state != State.FAILED:
@@ -80,7 +80,8 @@ class ProcessInstance:
 
 		self.restart_count += 1
 
-		if not should_restart or self.restart_count > self.config.startretries:
+		if not should_restart or (self.restart_count > self.config.startretries and self.config.autorestart == "unexpected"):
+			print("test")
 			return True
 
 
@@ -93,9 +94,9 @@ class ProcessInstance:
 			return
 
 		self.pid.send_signal(self.config.stopsignal)
-		self.killed = True
+		self.killed = True #useless si on garde pas la condition dans monitor
 		try:
-			self.pid.send_signal(signal.SIGTERM)
+			logger.info(f"signal {self.config.stopsignal} sent to {self.process_name} : {self}")
 			await asyncio.wait_for(self.pid.wait(), timeout=self.config.stoptime)
 			self.state = State.STOPPED
 			logger.info(f"{self.process_name} stopped")
@@ -104,7 +105,7 @@ class ProcessInstance:
 			# await asyncio.wait(self.pid)
 			self.pid.kill()
 			self.state = State.KILLED
-			logger.info(f"{self.process_name} killed")
+			logger.info(f"{self.process_name} : {self} killed")
 		self.fds.close()
 
 	def status(self):

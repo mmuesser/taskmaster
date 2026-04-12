@@ -129,17 +129,18 @@ class Taskmaster:
 			asyncio.create_task(process.start())
 			proc_instance.append(process)
 		if config.numprocs:
-			logger.info(f'{config.numprocs} process as been started')
+			logger.info(f'{config.numprocs} process has been started')
 
 		self.instances[prog] = proc_instance
 
 	async def stop(self, prog):
 		if prog not in self.configs:
 			return
-		logger.info(f"Stop {prog}")
+		
 		if not prog in self.configs or not prog in self.instances:
 			return
 		
+		logger.info(f"Stop {prog}")
 		for process in self.instances[prog]:
 			asyncio.create_task(process.stop())
 
@@ -188,7 +189,6 @@ class Taskmaster:
 					break
 				if cmd == "skip":
 					continue
-
 				asyncio.create_task(self.cmd[cmd](prg))
 			except EOFError:
 				break
