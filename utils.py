@@ -21,8 +21,12 @@ class FdManager:
 
 	def __init__(self, stdout, stderr):
 		# /dev/null -> -3
-		self.stdout = open(stdout, 'a')
-		self.stderr = open(stderr, 'a')
+		self.stdout = stdout
+		self.stderr = stderr
+
+	def open(self):
+		self.stdout_fd = open(self.stdout, 'a')
+		self.stderr_fd = open(self.stderr, 'a')
 
 	def close(self):
-		[fd.close() for fd in (self.stdout, self.stderr)]
+		[fd.close() for fd in (self.stdout_fd, self.stderr_fd)]

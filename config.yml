@@ -21,23 +21,23 @@ programs:
     numprocs: 1
     umask: 077
     workingdir: /tmp
-    autostart: true
-    autorestart: never
+    autostart: false
+    autorestart: unexpected
     exitcodes: 
-      - 0
-    startretries: 0
+      - 1
+    startretries: 5
     starttime: 0
     stopsignal: SIGCHLD
     stoptime: 3
     stdout: /tmp/sleep.stdout
     stderr: /tmp/sleep.stderr
   test:
-    cmd: "touch testfile && ls -l testfile"
+    cmd: "touch testfile && ls -l testfile && sleep 2"
     numprocs: 1
     umask: 022
     workingdir: /tmp
     autostart: true
-    autorestart: never
+    autorestart: always
     exitcodes: 
       - 0
     startretries: 0

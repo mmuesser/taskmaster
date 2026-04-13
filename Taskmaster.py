@@ -181,7 +181,7 @@ class Taskmaster:
 		while self.running:
 			try:
 				line = await asyncio.get_event_loop().run_in_executor(None, input)
-				if not line:
+				if not line or not line.strip():
 					continue # entrée vide
 				line = line.strip()
 				cmd, prg = self.parsing(line)
