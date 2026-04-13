@@ -22,6 +22,7 @@ class Taskmaster:
 			"restart": self.restart,
 			"stop": self.stop,
 			"list": self.list,
+			"kill": self.kill,
 			"unknown": self.unknown,
 		}
 		TabComplete.key_words.update(list(self.configs.keys()))
@@ -153,6 +154,18 @@ class Taskmaster:
 		logger.info(f"Restart {prog}")
 		await self.stop(prog)
 		asyncio.create_task(self.start(prog))
+
+	async def kill(self, prog):
+		if prog not in self.configs:
+			return
+		
+		logger.info(f"Force Kill {prog}")
+
+		instances = self.instances.get(prog)
+
+		for process in instances:
+			process.force_kill = True
+			process.kill()
 	
 	async def unknown(self, cmd):
 		logger.info(f'"{cmd}" command not found')
