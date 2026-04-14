@@ -4,31 +4,31 @@ programs:
     numprocs: 5
     umask: 022
     workingdir: /tmp
-    autostart: true
-    autorestart: never
+    autostart: false
+    autorestart: NEVER
     exitcodes:
       - 0
       - 2
     startretries: 2
-    starttime: 5
+    starttime: 0
     stopsignal: SIGTERM
     stoptime: 10
     stdout: echo.stdout
     env:
-      STARTED_BY: taskmaster
+      ANSWER: taskmaster
   sleep:
     cmd: "sleep 10"
     numprocs: 1
     umask: 077
     workingdir: /tmp
-    autostart: false
+    autostart: true
     autorestart: unexpected
     exitcodes: 
       - 1
-    startretries: 5
+    startretries: 3
     starttime: 0
     stopsignal: SIGCHLD
-    stoptime: 3
+    stoptime: 2
     stdout: /tmp/sleep.stdout
     stderr: /tmp/sleep.stderr
   test:
@@ -36,15 +36,29 @@ programs:
     numprocs: 1
     umask: 022
     workingdir: /tmp
-    autostart: true
-    autorestart: always
+    autostart: false
+    autorestart: unexpected
     exitcodes: 
       - 0
-    startretries: 0
+    startretries: 5
     starttime: 0
     stopsignal: SIGALRM
     stoptime: 10
     stdout: test.stdout
     stderr: test.stderr
-
-  asd:
+  stress:
+    cmd: "sleep infinity"
+    numprocs: 20
+    umask: 222
+    workingdir: /sleep
+    autostart: false
+    autorestart: always
+    exitcodes: 
+      - 0
+    startretries: -1
+    starttime: 1
+    stopsignal: SIGTERM
+    stoptime: 2
+    stdout: /sleep/sleep.stdout
+    stderr: /sleep/sleep.stderr
+    unknown: 10
