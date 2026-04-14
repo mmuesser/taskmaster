@@ -51,6 +51,7 @@ class ProgramConfig:
 		os.makedirs(self.workingdir, exist_ok=True)
 		self.stopsignal = get_signal(self.stopsignal)
 		[self.env.update({k: str(v)}) for k, v in self.env.items()]
+		self.autorestart = self.autorestart.lower()
 		print(self)
 
 	def __str__(self) -> str:

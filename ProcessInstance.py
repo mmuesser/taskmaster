@@ -13,7 +13,7 @@ class ProcessInstance:
 		self.index = index
 		self.config: ProgramConfig = config
 		self.fds: FdManager = FdManager(self.config.stdout, self.config.stdout)
-		self.state: State = State.STOPPED
+		self.state: State = State.INIT
 		self.restart_count: int = 0
 		self.stopped: bool = False
 		self.force_kill: bool = False
@@ -36,7 +36,9 @@ class ProcessInstance:
 			await self.stop()
 
 	async def launch(self):
-		logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
+		if self.config.autorestart != "always":
+			logger.info(f"{self.process_name} INIT restart count : {self.restart_count}")
+		self.stopped = False
 		try:
 			self.fds.open()
 			self.pid = await asyncio.create_subprocess_shell(
@@ -97,13 +99,11 @@ class ProcessInstance:
 			self.state = State.RUNNING
 			logger.info(f"{self.process_name} RUNNING")
 
-		
 		await self.pid.wait()
 		if self.force_kill:
-			return
-
+			return True
+		
 		match (self.config.autorestart):
-			
 			case 'always':
 				return self._always_restart()
 			case 'unexpected':
@@ -112,9 +112,10 @@ class ProcessInstance:
 				return self._never()
 
 	def kill(self):
-		self.pid.kill()
+		if self.pid.returncode is not None:
+			self.pid.terminate()
 		self.state = State.KILLED
-		logger.info(f"{self.process_name} : {self} killed")
+		logger.info(f"{self.process_name} killed ({self.pid.returncode})")
 
 	async def stop(self):
 		if not self.state in (State.RUNNING, State.STARTING):
@@ -123,7 +124,7 @@ class ProcessInstance:
 		self.pid.send_signal(self.config.stopsignal)
 		self.stopped = True
 		try:
-			logger.info(f"signal {self.config.stopsignal} sent to {self.process_name} : {self}")
+			logger.info(f"signal {self.config.stopsignal} sent to {self.process_name}")
 			await asyncio.wait_for(self.pid.wait(), timeout=self.config.stoptime)
 			self.state = State.STOPPED
 			logger.info(f"{self.process_name} stopped (code: {self.pid.returncode})")

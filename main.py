@@ -19,10 +19,6 @@ async def main():
 		tm = Taskmaster(Taskmaster.load_config())
 		loop = asyncio.get_running_loop()
 		loop.add_signal_handler(signal.SIGHUP, on_sighup, tm)
-		# for conf in tm.configs.values():
-		# 	print(f" {conf.name} signal : {conf.stopsignal}")
-		# 	print(f"{type(conf.stopsignal)}")
-		# 	loop.add_signal_handler(signal.Signals(conf.stopsignal), tm.stop, conf.name)
 		await tm.setup()
 
 	except (yaml.YAMLError):
@@ -33,4 +29,7 @@ async def main():
 
 
 if __name__ == "__main__":
-	asyncio.run(main())
+	try:
+		asyncio.run(main())
+	except (EOFError, KeyboardInterrupt):
+		pass

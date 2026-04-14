@@ -5,6 +5,8 @@ from logger import logger
 import asyncio, yaml, signal, sys, os
 from typing import Dict, List, Set
 import readline
+from concurrent.futures import ThreadPoolExecutor
+
 
 class Taskmaster:
 
@@ -27,6 +29,7 @@ class Taskmaster:
 		}
 		TabComplete.key_words.update(list(self.configs.keys()))
 		TabComplete.key_words.update(list(self.cmd.keys()) + ["exit"])
+		self.executor = ThreadPoolExecutor()
 
 	async def setup(self):
 		for name, conf in self.configs.items():
@@ -34,8 +37,9 @@ class Taskmaster:
 				asyncio.create_task(self.start(name))
 		try:
 			await self.run_shell()
-		except (asyncio.exceptions.CancelledError):
+		except (asyncio.exceptions.CancelledError, KeyboardInterrupt):
 			print('Press Enter to exit')
+		self.executor.shutdown(wait=False, cancel_futures=True)
 
 		await self.clean_up()
 
@@ -68,9 +72,12 @@ class Taskmaster:
 			logger.info("Nothing has been launched yet")
 			return
 		
+		logger.info("======================================")
 		for _, v in self.instances.items():
 			for proc in v:
 				proc.status()
+		logger.info("======================================")
+		
 
 	async def list(self, _):
 		logger.info("Programs loaded")
@@ -116,11 +123,14 @@ class Taskmaster:
 	async def start(self, prog):
 		if prog not in self.configs:
 			return
+
+		if instances := self.instances.get(prog, []):
+			if any(inst.state == State.RUNNING for inst in instances):
+				logger.info(f"Program {prog} already running")
+				return
+
 		logger.info(f"Start {prog}")
 
-		if not prog in self.configs:
-			return
-		
 		proc_instance = []
 
 		config: ProgramConfig = self.configs[prog]
@@ -135,15 +145,13 @@ class Taskmaster:
 		self.instances[prog] = proc_instance
 
 	async def stop(self, prog):
-		if prog not in self.configs:
-			return
-		
 		if not prog in self.configs or not prog in self.instances:
 			return
 		
 		logger.info(f"Stop {prog}")
 		for process in self.instances[prog]:
 			asyncio.create_task(process.stop())
+			process.force_kill = False
 
 		# self.instances[prog] = []
 		# del self.instances[prog]
@@ -193,7 +201,7 @@ class Taskmaster:
 
 		while self.running:
 			try:
-				line = await asyncio.get_event_loop().run_in_executor(None, input)
+				line = await asyncio.get_event_loop().run_in_executor(self.executor, input)
 				if not line or not line.strip():
 					continue # entrée vide
 				line = line.strip()
@@ -204,5 +212,8 @@ class Taskmaster:
 					continue
 				asyncio.create_task(self.cmd[cmd](prg))
 			except EOFError:
+				break
+			except KeyboardInterrupt:
+				self.executor.shutdown(wait=False, cancel_futures=True)
 				break
 		return
