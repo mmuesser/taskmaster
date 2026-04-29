@@ -62,7 +62,6 @@ class ProcessInstance:
 		if self.pid.returncode in self.config.exitcodes and self.state != State.FAILED:
 			self.state = State.SUCCESS
 			logger.info(f"{self.process_name} SUCCESS (code: {self.pid.returncode})")
-
 		else:
 			if self.state != State.FAILED:
 				self.state = State.FAILED

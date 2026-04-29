@@ -95,7 +95,8 @@ class Taskmaster:
 			logger.info("Nothing to reload")
 			return
 
-		to_stop: Set[ProgramConfig] = set(self.configs.values()) - set(new_config)
+		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
+		to_stop: Set[ProgramConfig] = set(self.configs.values()) - set(new_config) - to_start
 
 		# logger.debug(f"to stop {to_stop}")
 
@@ -106,8 +107,6 @@ class Taskmaster:
 			self.instances.pop(name, None)
 			TabComplete.key_words.discard(name)
 
-		to_start: Set[ProgramConfig] = set(new_config) - set(self.configs.values())
-
 		# logger.debug(f"to start / restart {to_start}")
 
 		for conf in to_start:
@@ -115,8 +114,8 @@ class Taskmaster:
 			self.configs[name] = conf
 
 			if name in self.configs:
-				await self.stop(name)
-			
+				await self.kill(name)
+
 			if conf.autostart:
 				asyncio.create_task(self.start(name))
 
@@ -148,6 +147,10 @@ class Taskmaster:
 		if not prog in self.configs or not prog in self.instances:
 			return
 		
+		if instances := self.instances.get(prog, []):
+			if not any(inst.state == State.RUNNING for inst in instances):
+				return
+
 		logger.info(f"Stop {prog}")
 		for process in self.instances[prog]:
 			asyncio.create_task(process.stop())
@@ -167,9 +170,13 @@ class Taskmaster:
 		if prog not in self.configs:
 			return
 		
+		if instances := self.instances.get(prog, []):
+			if not any(inst.state == State.RUNNING for inst in instances):
+				return
+		
 		logger.info(f"Force Kill {prog}")
 
-		instances = self.instances.get(prog)
+		instances = self.instances.get(prog, [])
 
 		for process in instances:
 			process.force_kill = True

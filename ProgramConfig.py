@@ -18,7 +18,7 @@ class ProgramConfig:
 	workingdir = (str, "/tmp")
 	autostart = (bool, True)
 	autorestart = (str, 'never')
-	exitcodes = (list, [])
+	exitcodes = (list, [0])
 	startretries = (int, 0)
 	starttime = (int, 0)
 	stopsignal = (str, signal.Signals.SIGSTOP)
